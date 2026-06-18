@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <title>Airi AR ポスター（テスト版）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+  <!-- AR.js (NFT = 画像認識ビルド) -->
+  <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.5/aframe/build/aframe-ar-nft.js"></script>
+
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
+    .a-enter-vr, .a-enter-ar { display: none !important; }
+
+    /* スタート画面 */
+    #intro {
+      position: fixed; inset: 0; z-index: 9999;
+      background: radial-gradient(circle at 50% 30%, #2a0a3a 0%, #0a0212 70%);
+      color: #fff; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+      padding: 24px; box-sizing: border-box;
+    }
+    #intro h1 { font-size: 26px; margin: 0 0 6px; color: #ff45c8; text-shadow: 0 0 12px #ff45c8; }
+    #intro h2 { font-size: 15px; margin: 0 0 24px; font-weight: 400; color: #8fd3ff; letter-spacing: 1px; }
+    #intro ol { text-align: left; font-size: 15px; line-height: 1.9; max-width: 320px; margin: 0 0 28px; padding-left: 22px; }
+    #intro .note { font-size: 12px; color: #aaa; max-width: 320px; line-height: 1.6; margin-top: 18px; }
+    #startBtn {
+      background: linear-gradient(90deg, #ff45c8, #8a4cff);
+      color: #fff; border: none; border-radius: 999px;
+      padding: 16px 48px; font-size: 18px; font-weight: 700;
+      box-shadow: 0 0 24px rgba(255,69,200,.6); cursor: pointer;
+    }
+    #startBtn:active { transform: scale(.97); }
+
+    /* 上部の案内バー（カメラ起動後） */
+    #hint {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+      background: rgba(10,2,18,.78); color: #fff; text-align: center;
+      padding: 10px 12px; font-size: 14px; display: none;
+    }
+    #hint b { color: #ff7ad9; }
+
+    /* ターゲット枠ガイド */
+    #frame {
+      position: fixed; inset: 0; z-index: 998; pointer-events: none; display: none;
+    }
+    #frame .box {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      width: 62vw; max-width: 320px; aspect-ratio: 800 / 1132;
+      border: 3px dashed rgba(255,122,217,.85); border-radius: 8px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.15);
+    }
+    #frame .label {
+      position: absolute; bottom: -34px; left: 50%; transform: translateX(-50%);
+      white-space: nowrap; color: #ff7ad9; font-size: 13px; text-shadow: 0 0 6px #000;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ▼ スタート画面 -->
+  <div id="intro">
+    <h1>あっ！Airi だ！ AR</h1>
+    <h2>MITO NO UTAHIME / テスト版</h2>
+    <ol>
+      <li>「スタート」を押す</li>
+      <li>カメラの使用を<b>許可</b>する</li>
+      <li>Airiのポスター全体を画面に映す</li>
+      <li>ポスターの上にMV動画が出ます🎬</li>
+    </ol>
+    <button id="startBtn">スタート ▶</button>
+    <div class="note">
+      ※ iPhoneは <b>Safari</b>、Androidは <b>Chrome</b> で開いてください。<br>
+      ※ 明るい場所で、ポスター全体がはっきり映るようにすると認識しやすいです。<br>
+      ※ 音が出ます。マナーにご注意ください。
+    </div>
+  </div>
+
+  <!-- ▼ 上部ヒント -->
+  <div id="hint">📷 ポスター全体を枠に合わせてください…</div>
+
+  <!-- ▼ ガイド枠 -->
+  <div id="frame"><div class="box"><span class="label">この枠にポスターを合わせる</span></div></div>
+
+  <!-- ▼ AR本体 -->
+  <a-scene
+    vr-mode-ui="enabled: false"
+    loading-screen="enabled: false"
+    renderer="logarithmicDepthBuffer: true; precision: medium;"
+    embedded
+    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false; detectionMode: mono;">
+
+    <a-assets>
+      <video id="airi-mv"
+        src="assets/airi-mv.mp4"
+        preload="auto"
+        loop
+        crossorigin="anonymous"
+        playsinline
+        webkit-playsinline
+        muted></video>
+    </a-assets>
+
+    <!-- ポスターを画像マーカーとして認識（assets/poster.fset / .fset3 / .iset を参照） -->
+    <a-nft
+      id="poster-marker"
+      type="nft"
+      url="assets/poster"
+      smooth="true"
+      smoothCount="10"
+      smoothTolerance="0.01"
+      smoothThreshold="5">
+
+      <!-- ポスターの上に重なるMV動画。位置・大きさは端末で微調整可（READMEの「調整」参照） -->
+      <a-video
+        id="ar-video"
+        src="#airi-mv"
+        position="400 565 1"
+        rotation="0 0 0"
+        width="800"
+        height="450">
+      </a-video>
+    </a-nft>
+
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    const intro   = document.getElementById('intro');
+    const startBtn= document.getElementById('startBtn');
+    const hint    = document.getElementById('hint');
+    const frame   = document.getElementById('frame');
+    const video   = document.getElementById('airi-mv');
+    const marker  = document.getElementById('poster-marker');
+
+    let primed = false;
+    let visible = false;
+
+    // iOS対策：ユーザー操作中に一度 play→pause して再生をアンロックしておく
+    function primeVideo() {
+      if (primed) return Promise.resolve();
+      video.muted = true;            // まず無音で許可を取る
+      return video.play().then(() => {
+        video.pause();
+        video.currentTime = 0;
+        primed = true;
+      }).catch(() => { /* 失敗しても続行 */ });
+    }
+
+    startBtn.addEventListener('click', async () => {
+      await primeVideo();
+      intro.style.display = 'none';
+      hint.style.display  = 'block';
+      frame.style.display = 'block';
+    });
+
+    // ポスターを認識したとき
+    marker.addEventListener('markerFound', () => {
+      visible = true;
+      hint.innerHTML = '🎬 <b>再生中！</b> ポスターから離れないでね';
+      frame.style.display = 'none';
+      video.muted = false;           // 音を出す（priming済みなので再生可）
+      video.play().catch(() => {
+        // それでもブロックされたら無音で再生
+        video.muted = true;
+        video.play();
+      });
+    });
+
+    // ポスターを見失ったとき
+    marker.addEventListener('markerLost', () => {
+      visible = false;
+      hint.innerHTML = '📷 もう一度ポスター全体を映してください…';
+      frame.style.display = 'block';
+      video.pause();
+    });
+
+    // 画面タップでも再生トグル（保険）
+    document.addEventListener('click', () => {
+      if (intro.style.display === 'none' && visible) {
+        if (video.paused) { video.muted = false; video.play(); }
+      }
+    });
+  </script>
+</body>
+</html>
