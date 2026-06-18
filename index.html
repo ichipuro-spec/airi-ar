@@ -6,18 +6,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
 
-  <!-- A-Frame -->
+  <!-- A-Frame + MindAR（iPhoneに強い画像認識AR） -->
   <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
-  <!-- AR.js (NFT = 画像認識ビルド) -->
-  <script src="https://raw.githack.com/AR-js-org/AR.js/3.4.5/aframe/build/aframe-ar-nft.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 
   <style>
-    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; }
-    .a-enter-vr, .a-enter-ar { display: none !important; }
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+      font-family: -apple-system, "Hiragino Kaku Gothic ProN", sans-serif; background: #000; }
 
     /* スタート画面 */
     #intro {
-      position: fixed; inset: 0; z-index: 9999;
+      position: fixed; inset: 0; z-index: 10000;
       background: radial-gradient(circle at 50% 30%, #2a0a3a 0%, #0a0212 70%);
       color: #fff; display: flex; flex-direction: column;
       align-items: center; justify-content: center; text-align: center;
@@ -35,28 +34,13 @@
     }
     #startBtn:active { transform: scale(.97); }
 
-    /* 上部の案内バー（カメラ起動後） */
+    /* 上部の案内バー */
     #hint {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+      position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
       background: rgba(10,2,18,.78); color: #fff; text-align: center;
       padding: 10px 12px; font-size: 14px; display: none;
     }
     #hint b { color: #ff7ad9; }
-
-    /* ターゲット枠ガイド */
-    #frame {
-      position: fixed; inset: 0; z-index: 998; pointer-events: none; display: none;
-    }
-    #frame .box {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-      width: 62vw; max-width: 320px; aspect-ratio: 800 / 1132;
-      border: 3px dashed rgba(255,122,217,.85); border-radius: 8px;
-      box-shadow: 0 0 0 9999px rgba(0,0,0,.15);
-    }
-    #frame .label {
-      position: absolute; bottom: -34px; left: 50%; transform: translateX(-50%);
-      white-space: nowrap; color: #ff7ad9; font-size: 13px; text-shadow: 0 0 6px #000;
-    }
   </style>
 </head>
 <body>
@@ -80,18 +64,16 @@
   </div>
 
   <!-- ▼ 上部ヒント -->
-  <div id="hint">📷 ポスター全体を枠に合わせてください…</div>
+  <div id="hint">📷 ポスター全体をカメラに映してください…</div>
 
-  <!-- ▼ ガイド枠 -->
-  <div id="frame"><div class="box"><span class="label">この枠にポスターを合わせる</span></div></div>
-
-  <!-- ▼ AR本体 -->
+  <!-- ▼ AR本体（MindAR）-->
   <a-scene
-    vr-mode-ui="enabled: false"
-    loading-screen="enabled: false"
-    renderer="logarithmicDepthBuffer: true; precision: medium;"
+    mindar-image="imageTargetSrc: assets/targets.mind; autoStart: false; uiScanning: no; uiLoading: no; uiError: no; filterMinCF: 0.0001; filterBeta: 0.01;"
+    color-space="sRGB"
     embedded
-    arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false; detectionMode: mono;">
+    renderer="colorManagement: true, physicallyCorrectLights"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
 
     <a-assets>
       <video id="airi-mv"
@@ -104,84 +86,79 @@
         muted></video>
     </a-assets>
 
-    <!-- ポスターを画像マーカーとして認識（assets/poster.fset / .fset3 / .iset を参照） -->
-    <a-nft
-      id="poster-marker"
-      type="nft"
-      url="assets/poster"
-      smooth="true"
-      smoothCount="10"
-      smoothTolerance="0.01"
-      smoothThreshold="5">
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- ポスターの上に重なるMV動画。位置・大きさは端末で微調整可（READMEの「調整」参照） -->
+    <!-- ポスター（targets.mind の0番目）を認識したら出る動画 -->
+    <a-entity id="target" mindar-image-target="targetIndex: 0">
+      <!-- 16:9のMVをポスター幅いっぱい・中央に重ねる -->
       <a-video
         id="ar-video"
         src="#airi-mv"
-        position="400 565 1"
+        position="0 0 0"
         rotation="0 0 0"
-        width="800"
-        height="450">
+        width="1"
+        height="0.564">
       </a-video>
-    </a-nft>
-
-    <a-entity camera></a-entity>
+    </a-entity>
   </a-scene>
 
   <script>
     const intro   = document.getElementById('intro');
     const startBtn= document.getElementById('startBtn');
     const hint    = document.getElementById('hint');
-    const frame   = document.getElementById('frame');
     const video   = document.getElementById('airi-mv');
-    const marker  = document.getElementById('poster-marker');
+    const target  = document.getElementById('target');
+    const sceneEl = document.querySelector('a-scene');
 
     let primed = false;
     let visible = false;
 
-    // iOS対策：ユーザー操作中に一度 play→pause して再生をアンロックしておく
+    // iOS対策：ユーザー操作中に一度 play→pause して再生をアンロック
     function primeVideo() {
       if (primed) return Promise.resolve();
-      video.muted = true;            // まず無音で許可を取る
+      video.muted = true;
       return video.play().then(() => {
         video.pause();
         video.currentTime = 0;
         primed = true;
-      }).catch(() => { /* 失敗しても続行 */ });
+      }).catch(() => {});
     }
 
     startBtn.addEventListener('click', async () => {
+      startBtn.textContent = '起動中…';
       await primeVideo();
+      // MindARを開始（カメラ許可ダイアログが出ます）
+      const arSystem = sceneEl.systems['mindar-image-system'];
+      try {
+        await arSystem.start();
+      } catch (e) {
+        alert('カメラを起動できませんでした。Safari/Chromeで開き、カメラを許可してください。');
+        startBtn.textContent = 'スタート ▶';
+        return;
+      }
       intro.style.display = 'none';
       hint.style.display  = 'block';
-      frame.style.display = 'block';
     });
 
     // ポスターを認識したとき
-    marker.addEventListener('markerFound', () => {
+    target.addEventListener('targetFound', () => {
       visible = true;
       hint.innerHTML = '🎬 <b>再生中！</b> ポスターから離れないでね';
-      frame.style.display = 'none';
-      video.muted = false;           // 音を出す（priming済みなので再生可）
-      video.play().catch(() => {
-        // それでもブロックされたら無音で再生
-        video.muted = true;
-        video.play();
-      });
+      video.muted = false;
+      video.play().catch(() => { video.muted = true; video.play(); });
     });
 
     // ポスターを見失ったとき
-    marker.addEventListener('markerLost', () => {
+    target.addEventListener('targetLost', () => {
       visible = false;
       hint.innerHTML = '📷 もう一度ポスター全体を映してください…';
-      frame.style.display = 'block';
       video.pause();
     });
 
-    // 画面タップでも再生トグル（保険）
+    // 画面タップでも再生（保険）
     document.addEventListener('click', () => {
-      if (intro.style.display === 'none' && visible) {
-        if (video.paused) { video.muted = false; video.play(); }
+      if (intro.style.display === 'none' && visible && video.paused) {
+        video.muted = false; video.play();
       }
     });
   </script>
